@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ChevronDown, Phone, Mail, FileText, Download, Plus, Pencil, Trash2, LogOut, ImagePlus, X, LayoutDashboard, Package, ShoppingBag, BarChart2, Users, TrendingUp, GraduationCap, BookOpen, Video, Image as ImageIcon, ChevronRight, ChevronDown as ChevDown, ListChecks, Loader2, Eye, Code2 } from "lucide-react";
+import { ChevronDown, Phone, Mail, FileText, Download, Plus, Pencil, Trash2, LogOut, ImagePlus, X, LayoutDashboard, Package, ShoppingBag, BarChart2, Users, TrendingUp, GraduationCap, BookOpen, Video, Image as ImageIcon, ChevronRight, ChevronDown as ChevDown, ListChecks, Loader2, Eye, Code2, LockKeyhole, LockKeyholeOpen } from "lucide-react";
 import { LessonContent, SyntaxGuide } from "@/components/lesson-content";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -311,6 +311,20 @@ export default function Admin() {
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "Erreur"); }
     },
     onSuccess: () => { toast.success("Formation supprimée"); refetchFormations(); setDeleteFormationDialog({ open: false, formation: null }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleFormationActiveMut = useMutation({
+    mutationFn: async (formation: Formation) => {
+      const body = { slug: formation.slug, title: formation.title, description: formation.description, category: formation.category, imageUrl: formation.imageUrl ?? null, active: !formation.active };
+      const res = await fetch(`/api/admin/formations/${formation.id}`, { method: "PUT", headers: authHeaders, body: JSON.stringify(body) });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "Erreur"); }
+      return res.json();
+    },
+    onSuccess: (data: Formation) => {
+      toast.success(data.active ? "Formation débloquée" : "Formation bloquée");
+      refetchFormations();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -692,6 +706,15 @@ export default function Admin() {
                               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{formation.description}</p>
                             </div>
                             <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="ghost" size="icon"
+                                className={`h-7 w-7 ${formation.active ? "text-green-600 hover:text-orange-600" : "text-red-500 hover:text-green-600"}`}
+                                title={formation.active ? "Bloquer l'accès" : "Débloquer l'accès"}
+                                disabled={toggleFormationActiveMut.isPending}
+                                onClick={() => toggleFormationActiveMut.mutate(formation)}
+                              >
+                                {formation.active ? <LockKeyholeOpen className="h-3.5 w-3.5" /> : <LockKeyhole className="h-3.5 w-3.5" />}
+                              </Button>
                               <Button
                                 variant="ghost" size="icon" className="h-7 w-7"
                                 onClick={() => {

@@ -3,20 +3,30 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Maodo Services API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: orders
+    description: Order management
+  - name: services
+    description: Service catalogue
+  - name: payment
+    description: DiamanoPay payment operations
+  - name: auth
+    description: Admin authentication
+  - name: visits
+    description: Visitor statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +34,1177 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: adminLogin
+      tags: [auth]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthToken"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: adminMe
+      tags: [auth]
+      summary: Get current admin
+      responses:
+        "200":
+          description: Current admin info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProfile"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /services:
+    get:
+      operationId: listServices
+      tags: [services]
+      summary: List all available services
+      responses:
+        "200":
+          description: List of services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+
+  /admin/services:
+    post:
+      operationId: createService
+      tags: [services]
+      summary: Create a new service (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceInput"
+      responses:
+        "201":
+          description: Service created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/services/{id}:
+    put:
+      operationId: updateService
+      tags: [services]
+      summary: Update a service (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceUpdateInput"
+      responses:
+        "200":
+          description: Updated service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteService
+      tags: [services]
+      summary: Delete a service (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders:
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List all orders (admin)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, processing, completed, cancelled]
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get an order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders/ref/{reference}:
+    get:
+      operationId: getOrderByReference
+      tags: [orders]
+      summary: Get an order by reference code
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /formations:
+    get:
+      operationId: listFormations
+      tags: [formations]
+      summary: List all active formations
+      responses:
+        "200":
+          description: List of formations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Formation"
+
+  /formations/{id}:
+    get:
+      operationId: getFormation
+      tags: [formations]
+      summary: Get a formation with its modules and lessons
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Formation with modules and lessons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormationWithModules"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/formations:
+    get:
+      operationId: listAllFormations
+      tags: [formations]
+      summary: List all formations including inactive (admin)
+      responses:
+        "200":
+          description: All formations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Formation"
+    post:
+      operationId: createFormation
+      tags: [formations]
+      summary: Create a formation (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormationInput"
+      responses:
+        "201":
+          description: Formation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Formation"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/formations/{id}:
+    put:
+      operationId: updateFormation
+      tags: [formations]
+      summary: Update a formation (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormationInput"
+      responses:
+        "200":
+          description: Updated formation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Formation"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteFormation
+      tags: [formations]
+      summary: Delete a formation (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: integer
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/modules:
+    post:
+      operationId: createModule
+      tags: [formations]
+      summary: Create a module (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModuleInput"
+      responses:
+        "201":
+          description: Module created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Module"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/modules/{id}:
+    put:
+      operationId: updateModule
+      tags: [formations]
+      summary: Update a module (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModuleInput"
+      responses:
+        "200":
+          description: Updated module
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Module"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteModule
+      tags: [formations]
+      summary: Delete a module (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: integer
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/lessons:
+    post:
+      operationId: createLesson
+      tags: [formations]
+      summary: Create a lesson (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LessonInput"
+      responses:
+        "201":
+          description: Lesson created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lesson"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/lessons/{id}:
+    put:
+      operationId: updateLesson
+      tags: [formations]
+      summary: Update a lesson (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LessonInput"
+      responses:
+        "200":
+          description: Updated lesson
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lesson"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteLesson
+      tags: [formations]
+      summary: Delete a lesson (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: integer
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/orders:
+    delete:
+      operationId: clearOrderHistory
+      tags: [orders]
+      summary: Delete all orders matching an optional status filter (admin)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, processing, completed, cancelled]
+      responses:
+        "200":
+          description: Orders deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: integer
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/orders/{id}:
+    delete:
+      operationId: deleteOrder
+      tags: [orders]
+      summary: Delete a specific order (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: integer
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders/{id}/status:
+    patch:
+      operationId: updateOrderStatus
+      tags: [orders]
+      summary: Update order status (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderStatusUpdate"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /payment/create:
+    post:
+      operationId: createPayment
+      tags: [payment]
+      summary: Create a DiamanoPay payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentCreateInput"
+      responses:
+        "200":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentCreateResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /payment/status/{transactionId}:
+    get:
+      operationId: getPaymentStatus
+      tags: [payment]
+      summary: Get DiamanoPay transaction status
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transaction status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentStatusResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /payment/callback:
+    post:
+      operationId: paymentCallback
+      tags: [payment]
+      summary: DiamanoPay payment callback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookPayload"
+      responses:
+        "200":
+          description: Callback received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookReceived"
+
+  /payment/webhook:
+    post:
+      operationId: paymentWebhook
+      tags: [payment]
+      summary: DiamanoPay webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookPayload"
+      responses:
+        "200":
+          description: Webhook received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookReceived"
+
+  /visits:
+    post:
+      operationId: recordVisit
+      tags: [visits]
+      summary: Record a page visit for today
+      responses:
+        "200":
+          description: Visit recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisitStat"
+
+  /visits/today:
+    get:
+      operationId: getTodayVisits
+      tags: [visits]
+      summary: Get today's visitor count
+      responses:
+        "200":
+          description: Today's visitor count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisitStat"
+
+  /visits/stats:
+    get:
+      operationId: getVisitStats
+      tags: [visits]
+      summary: Get visitor counts for the last 7 days
+      responses:
+        "200":
+          description: Visit stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VisitStat"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    AdminLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthToken:
+      type: object
+      required: [token, email]
+      properties:
+        token:
+          type: string
+        email:
+          type: string
+
+    AdminProfile:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+
+    WebhookPayload:
+      type: object
+      additionalProperties: true
+
+    WebhookReceived:
+      type: object
+      properties:
+        received:
+          type: boolean
+
+    Service:
+      type: object
+      required: [id, name, price, delay, description, icon, active]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: integer
+        delay:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        active:
+          type: boolean
+
+    ServiceInput:
+      type: object
+      required: [id, name, description, price, delay]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          minLength: 2
+        description:
+          type: string
+          minLength: 5
+        price:
+          type: integer
+          minimum: 0
+        delay:
+          type: string
+        icon:
+          type: string
+
+    ServiceUpdateInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+        description:
+          type: string
+          minLength: 5
+        price:
+          type: integer
+          minimum: 0
+        delay:
+          type: string
+        icon:
+          type: string
+        active:
+          type: boolean
+
+    OrderInput:
+      type: object
+      required: [serviceId, clientName, clientPhone, description]
+      properties:
+        serviceId:
+          type: string
+        clientName:
+          type: string
+          minLength: 2
+        clientPhone:
+          type: string
+          minLength: 6
+        clientEmail:
+          type: ["string", "null"]
+        description:
+          type: string
+          minLength: 10
+
+    OrderStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, processing, completed, cancelled]
+
+    Order:
+      type: object
+      required: [id, reference, serviceId, serviceName, servicePrice, clientName, clientPhone, description, status, paymentStatus, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        reference:
+          type: string
+        serviceId:
+          type: string
+        serviceName:
+          type: string
+        servicePrice:
+          type: integer
+        serviceDelay:
+          type: string
+        clientName:
+          type: string
+        clientPhone:
+          type: string
+        clientEmail:
+          type: ["string", "null"]
+        description:
+          type: string
+        fileName:
+          type: ["string", "null"]
+        filePath:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, processing, completed, cancelled]
+        paymentStatus:
+          type: string
+          enum: [pending, paid, failed]
+        paymentReference:
+          type: ["string", "null"]
+        paymentMethod:
+          type: ["string", "null"]
+        transactionId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    PaymentCreateInput:
+      type: object
+      required: [orderId, method]
+      properties:
+        orderId:
+          type: integer
+        method:
+          type: string
+          enum: [wave, orange, free, expresso]
+
+    PaymentCreateResponse:
+      type: object
+      required: [reference]
+      properties:
+        transactionId:
+          type: string
+        paymentUrl:
+          type: ["string", "null"]
+        qrCode:
+          type: ["string", "null"]
+        reference:
+          type: string
+        simulation:
+          type: boolean
+
+    PaymentStatusResponse:
+      type: object
+      required: [transactionId, status]
+      properties:
+        transactionId:
+          type: string
+        status:
+          type: string
+        reference:
+          type: ["string", "null"]
+        amount:
+          type: integer
+        currency:
+          type: string
+        payment_method:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    VisitStat:
+      type: object
+      required: [date, count]
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer
+
+    # ── Formations ──────────────────────────────────────────────────────────
+
+    Formation:
+      type: object
+      required: [id, slug, title, description, category, active, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    FormationWithModules:
+      type: object
+      required: [id, slug, title, description, category, active, createdAt, updatedAt, modules]
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuleWithLessons"
+
+    Module:
+      type: object
+      required: [id, formationId, title, order, createdAt]
+      properties:
+        id:
+          type: integer
+        formationId:
+          type: integer
+        title:
+          type: string
+        order:
+          type: integer
+        createdAt:
+          type: string
+
+    ModuleWithLessons:
+      type: object
+      required: [id, formationId, title, order, createdAt, lessons]
+      properties:
+        id:
+          type: integer
+        formationId:
+          type: integer
+        title:
+          type: string
+        order:
+          type: integer
+        createdAt:
+          type: string
+        lessons:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lesson"
+
+    Lesson:
+      type: object
+      required: [id, moduleId, title, theory, mediaType, order, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        moduleId:
+          type: integer
+        title:
+          type: string
+        theory:
+          type: string
+        mediaType:
+          type: string
+          enum: [none, youtube, image]
+        mediaUrl:
+          type: ["string", "null"]
+        order:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    FormationInput:
+      type: object
+      required: [slug, title, description, category]
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        active:
+          type: boolean
+
+    ModuleInput:
+      type: object
+      required: [formationId, title, order]
+      properties:
+        formationId:
+          type: integer
+        title:
+          type: string
+        order:
+          type: integer
+
+    LessonInput:
+      type: object
+      required: [moduleId, title, theory, mediaType, order]
+      properties:
+        moduleId:
+          type: integer
+        title:
+          type: string
+        theory:
+          type: string
+        mediaType:
+          type: string
+          enum: [none, youtube, image]
+        mediaUrl:
+          type: ["string", "null"]
+        order:
+          type: integer

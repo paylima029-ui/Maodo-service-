@@ -1,0 +1,389 @@
+import { Router, type IRouter } from "express";
+import { eq, asc, inArray } from "drizzle-orm";
+import multer from "multer";
+import { db, formationsTable, modulesTable, lessonsTable, quizzesTable, quizOptionsTable } from "@workspace/db";
+import { requireAuth } from "../middlewares/requireAuth";
+
+const router: IRouter = Router();
+
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
+
+function formatFormation(f: typeof formationsTable.$inferSelect) {
+  return {
+    ...f,
+    createdAt: f.createdAt.toISOString(),
+    updatedAt: f.updatedAt.toISOString(),
+  };
+}
+
+function formatModule(m: typeof modulesTable.$inferSelect) {
+  return {
+    ...m,
+    createdAt: m.createdAt.toISOString(),
+  };
+}
+
+function formatLesson(l: typeof lessonsTable.$inferSelect) {
+  return {
+    ...l,
+    createdAt: l.createdAt.toISOString(),
+    updatedAt: l.updatedAt.toISOString(),
+  };
+}
+
+router.get("/formations", async (_req, res): Promise<void> => {
+  const formations = await db
+    .select()
+    .from(formationsTable)
+    .where(eq(formationsTable.active, true))
+    .orderBy(asc(formationsTable.id));
+  res.json(formations.map(formatFormation));
+});
+
+router.get("/formations/:id", async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: "ID invalide" }); return; }
+
+  const [formation] = await db
+    .select()
+    .from(formationsTable)
+    .where(eq(formationsTable.id, id));
+
+  if (!formation) { res.status(404).json({ error: "Formation introuvable" }); return; }
+
+  const modules = await db
+    .select()
+    .from(modulesTable)
+    .where(eq(modulesTable.formationId, id))
+    .orderBy(asc(modulesTable.order));
+
+  const lessons = modules.length > 0
+    ? await db
+        .select()
+        .from(lessonsTable)
+        .where(inArray(lessonsTable.moduleId, modules.map((m) => m.id)))
+        .orderBy(asc(lessonsTable.order))
+    : [];
+
+  const modulesWithLessons = modules.map((m) => ({
+    ...formatModule(m),
+    lessons: lessons.filter((l) => l.moduleId === m.id).map(formatLesson),
+  }));
+
+  res.json({ ...formatFormation(formation), modules: modulesWithLessons });
+});
+
+router.get("/admin/formations", requireAuth, async (_req, res): Promise<void> => {
+  const formations = await db.select().from(formationsTable).orderBy(asc(formationsTable.id));
+  if (formations.length === 0) { res.json([]); return; }
+
+  const allModules = await db
+    .select()
+    .from(modulesTable)
+    .where(inArray(modulesTable.formationId, formations.map((f) => f.id)))
+    .orderBy(asc(modulesTable.order));
+
+  const allLessons = allModules.length > 0
+    ? await db
+        .select()
+        .from(lessonsTable)
+        .where(inArray(lessonsTable.moduleId, allModules.map((m) => m.id)))
+        .orderBy(asc(lessonsTable.order))
+    : [];
+
+  const result = formations.map((f) => {
+    const modules = allModules
+      .filter((m) => m.formationId === f.id)
+      .map((m) => ({
+        ...formatModule(m),
+        lessons: allLessons.filter((l) => l.moduleId === m.id).map(formatLesson),
+      }));
+    return { ...formatFormation(f), modules };
+  });
+
+  res.json(result);
+});
+
+router.post("/admin/formations/:id/image", requireAuth, imageUpload.single("image"), async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  if (!req.file) { res.status(400).json({ error: "Aucun fichier reçu" }); return; }
+  const base64 = req.file.buffer.toString("base64");
+  const imageUrl = `data:${req.file.mimetype};base64,${base64}`;
+  const [formation] = await db.update(formationsTable).set({ imageUrl, updatedAt: new Date() }).where(eq(formationsTable.id, id)).returning();
+  if (!formation) { res.status(404).json({ error: "Formation introuvable" }); return; }
+  res.json(formatFormation(formation));
+});
+
+router.delete("/admin/formations/:id/image", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const [formation] = await db.update(formationsTable).set({ imageUrl: null, updatedAt: new Date() }).where(eq(formationsTable.id, id)).returning();
+  if (!formation) { res.status(404).json({ error: "Formation introuvable" }); return; }
+  res.json(formatFormation(formation));
+});
+
+router.post("/admin/lessons/:id/media", requireAuth, imageUpload.single("media"), async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  if (!req.file) { res.status(400).json({ error: "Aucun fichier reçu" }); return; }
+  const base64 = req.file.buffer.toString("base64");
+  const mediaUrl = `data:${req.file.mimetype};base64,${base64}`;
+  const [lesson] = await db.update(lessonsTable).set({ mediaUrl, mediaType: "image", updatedAt: new Date() }).where(eq(lessonsTable.id, id)).returning();
+  if (!lesson) { res.status(404).json({ error: "Leçon introuvable" }); return; }
+  res.json(formatLesson(lesson));
+});
+
+router.post("/admin/formations", requireAuth, async (req, res): Promise<void> => {
+  const { slug, title, description, category, imageUrl, active } = req.body as {
+    slug?: string; title?: string; description?: string;
+    category?: string; imageUrl?: string | null; active?: boolean;
+  };
+
+  if (!slug || !title || !description || !category) {
+    res.status(400).json({ error: "Champs requis: slug, title, description, category" });
+    return;
+  }
+
+  const [formation] = await db
+    .insert(formationsTable)
+    .values({ slug, title, description, category, imageUrl: imageUrl ?? null, active: active ?? true })
+    .returning();
+
+  res.status(201).json(formatFormation(formation));
+});
+
+router.put("/admin/formations/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const { slug, title, description, category, imageUrl, active } = req.body as {
+    slug?: string; title?: string; description?: string;
+    category?: string; imageUrl?: string | null; active?: boolean;
+  };
+
+  if (!slug || !title || !description || !category) {
+    res.status(400).json({ error: "Champs requis: slug, title, description, category" });
+    return;
+  }
+
+  const [formation] = await db
+    .update(formationsTable)
+    .set({ slug, title, description, category, imageUrl: imageUrl ?? null, active: active ?? true, updatedAt: new Date() })
+    .where(eq(formationsTable.id, id))
+    .returning();
+
+  if (!formation) { res.status(404).json({ error: "Formation introuvable" }); return; }
+  res.json(formatFormation(formation));
+});
+
+router.delete("/admin/formations/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const [f] = await db.delete(formationsTable).where(eq(formationsTable.id, id)).returning();
+  if (!f) { res.status(404).json({ error: "Formation introuvable" }); return; }
+  res.json({ id: f.id });
+});
+
+router.post("/admin/modules", requireAuth, async (req, res): Promise<void> => {
+  const { formationId, title, order } = req.body as {
+    formationId?: number; title?: string; order?: number;
+  };
+
+  if (!formationId || !title) {
+    res.status(400).json({ error: "Champs requis: formationId, title" });
+    return;
+  }
+
+  const [module] = await db
+    .insert(modulesTable)
+    .values({ formationId, title, order: order ?? 0 })
+    .returning();
+
+  res.status(201).json(formatModule(module));
+});
+
+router.put("/admin/modules/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const { formationId, title, order } = req.body as {
+    formationId?: number; title?: string; order?: number;
+  };
+
+  if (!formationId || !title) {
+    res.status(400).json({ error: "Champs requis: formationId, title" });
+    return;
+  }
+
+  const [module] = await db
+    .update(modulesTable)
+    .set({ formationId, title, order: order ?? 0 })
+    .where(eq(modulesTable.id, id))
+    .returning();
+
+  if (!module) { res.status(404).json({ error: "Module introuvable" }); return; }
+  res.json(formatModule(module));
+});
+
+router.delete("/admin/modules/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const [m] = await db.delete(modulesTable).where(eq(modulesTable.id, id)).returning();
+  if (!m) { res.status(404).json({ error: "Module introuvable" }); return; }
+  res.json({ id: m.id });
+});
+
+router.post("/admin/lessons", requireAuth, async (req, res): Promise<void> => {
+  const { moduleId, title, theory, mediaType, mediaUrl, order } = req.body as {
+    moduleId?: number; title?: string; theory?: string;
+    mediaType?: string; mediaUrl?: string | null; order?: number;
+  };
+
+  if (!moduleId || !title) {
+    res.status(400).json({ error: "Champs requis: moduleId, title" });
+    return;
+  }
+
+  const [lesson] = await db
+    .insert(lessonsTable)
+    .values({
+      moduleId,
+      title,
+      theory: theory ?? "",
+      mediaType: (mediaType as "none" | "youtube" | "image") ?? "none",
+      mediaUrl: mediaUrl ?? null,
+      order: order ?? 0,
+    })
+    .returning();
+
+  res.status(201).json(formatLesson(lesson));
+});
+
+router.put("/admin/lessons/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const { moduleId, title, theory, mediaType, mediaUrl, order } = req.body as {
+    moduleId?: number; title?: string; theory?: string;
+    mediaType?: string; mediaUrl?: string | null; order?: number;
+  };
+
+  if (!moduleId || !title) {
+    res.status(400).json({ error: "Champs requis: moduleId, title" });
+    return;
+  }
+
+  const [lesson] = await db
+    .update(lessonsTable)
+    .set({
+      moduleId,
+      title,
+      theory: theory ?? "",
+      mediaType: (mediaType as "none" | "youtube" | "image") ?? "none",
+      mediaUrl: mediaUrl ?? null,
+      order: order ?? 0,
+      updatedAt: new Date(),
+    })
+    .where(eq(lessonsTable.id, id))
+    .returning();
+
+  if (!lesson) { res.status(404).json({ error: "Leçon introuvable" }); return; }
+  res.json(formatLesson(lesson));
+});
+
+router.delete("/admin/lessons/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const [l] = await db.delete(lessonsTable).where(eq(lessonsTable.id, id)).returning();
+  if (!l) { res.status(404).json({ error: "Leçon introuvable" }); return; }
+  res.json({ id: l.id });
+});
+
+// ── Admin: Quiz routes ──────────────────────────────────────────────────────
+
+router.get("/admin/lessons/:id/quizzes", requireAuth, async (req, res): Promise<void> => {
+  const lessonId = parseInt(String(req.params.id), 10);
+  const quizzes = await db.select().from(quizzesTable).where(eq(quizzesTable.lessonId, lessonId)).orderBy(asc(quizzesTable.order));
+  if (quizzes.length === 0) { res.json([]); return; }
+  const options = await db.select().from(quizOptionsTable).where(inArray(quizOptionsTable.quizId, quizzes.map((q) => q.id))).orderBy(asc(quizOptionsTable.order));
+  res.json(quizzes.map((q) => ({ ...q, createdAt: q.createdAt.toISOString(), options: options.filter((o) => o.quizId === q.id) })));
+});
+
+router.post("/admin/lessons/:id/quizzes", requireAuth, async (req, res): Promise<void> => {
+  const lessonId = parseInt(String(req.params.id), 10);
+  const { question, order } = req.body as { question?: string; order?: number };
+  if (!question) { res.status(400).json({ error: "question requis" }); return; }
+  const [quiz] = await db.insert(quizzesTable).values({ lessonId, question, order: order ?? 0 }).returning();
+  res.status(201).json({ ...quiz, createdAt: quiz.createdAt.toISOString(), options: [] });
+});
+
+router.put("/admin/quizzes/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const { question, order } = req.body as { question?: string; order?: number };
+  if (!question) { res.status(400).json({ error: "question requis" }); return; }
+  const [quiz] = await db.update(quizzesTable).set({ question, order: order ?? 0 }).where(eq(quizzesTable.id, id)).returning();
+  if (!quiz) { res.status(404).json({ error: "Quiz introuvable" }); return; }
+  res.json({ ...quiz, createdAt: quiz.createdAt.toISOString() });
+});
+
+router.delete("/admin/quizzes/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const [q] = await db.delete(quizzesTable).where(eq(quizzesTable.id, id)).returning();
+  if (!q) { res.status(404).json({ error: "Quiz introuvable" }); return; }
+  res.json({ id: q.id });
+});
+
+router.post("/admin/quizzes/:id/options", requireAuth, async (req, res): Promise<void> => {
+  const quizId = parseInt(String(req.params.id), 10);
+  const { text, isCorrect, order } = req.body as { text?: string; isCorrect?: boolean; order?: number };
+  if (!text) { res.status(400).json({ error: "text requis" }); return; }
+  const [option] = await db.insert(quizOptionsTable).values({ quizId, text, isCorrect: isCorrect ?? false, order: order ?? 0 }).returning();
+  res.status(201).json(option);
+});
+
+router.put("/admin/quiz-options/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const { text, isCorrect, order } = req.body as { text?: string; isCorrect?: boolean; order?: number };
+  if (!text) { res.status(400).json({ error: "text requis" }); return; }
+  const [option] = await db.update(quizOptionsTable).set({ text, isCorrect: isCorrect ?? false, order: order ?? 0 }).where(eq(quizOptionsTable.id, id)).returning();
+  if (!option) { res.status(404).json({ error: "Option introuvable" }); return; }
+  res.json(option);
+});
+
+router.delete("/admin/quiz-options/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const [o] = await db.delete(quizOptionsTable).where(eq(quizOptionsTable.id, id)).returning();
+  if (!o) { res.status(404).json({ error: "Option introuvable" }); return; }
+  res.json({ id: o.id });
+});
+
+// ── Public: Quiz routes ─────────────────────────────────────────────────────
+
+router.get("/lessons/:id/quizzes", async (req, res): Promise<void> => {
+  const lessonId = parseInt(String(req.params.id), 10);
+  const quizzes = await db.select().from(quizzesTable).where(eq(quizzesTable.lessonId, lessonId)).orderBy(asc(quizzesTable.order));
+  if (quizzes.length === 0) { res.json([]); return; }
+  const allOptions = await db.select().from(quizOptionsTable).where(inArray(quizOptionsTable.quizId, quizzes.map((q) => q.id))).orderBy(asc(quizOptionsTable.order));
+  res.json(quizzes.map((q) => ({
+    id: q.id,
+    question: q.question,
+    order: q.order,
+    options: allOptions.filter((o) => o.quizId === q.id).map((o) => ({ id: o.id, text: o.text, order: o.order })),
+  })));
+});
+
+router.post("/lessons/:id/quiz/submit", async (req, res): Promise<void> => {
+  const lessonId = parseInt(String(req.params.id), 10);
+  const { answers } = req.body as { answers?: { quizId: number; optionId: number }[] };
+  if (!answers || !Array.isArray(answers) || answers.length === 0) {
+    res.status(400).json({ error: "answers requis" }); return;
+  }
+  const quizIds = answers.map((a) => a.quizId);
+  const quizzes = await db.select().from(quizzesTable).where(inArray(quizzesTable.id, quizIds));
+  const options = await db.select().from(quizOptionsTable).where(inArray(quizOptionsTable.quizId, quizIds));
+  const lessonQuizIds = new Set(quizzes.filter((q) => q.lessonId === lessonId).map((q) => q.id));
+  const results = answers.map((a) => {
+    if (!lessonQuizIds.has(a.quizId)) return { quizId: a.quizId, correct: false, correctOptionId: null };
+    const correctOpt = options.find((o) => o.quizId === a.quizId && o.isCorrect);
+    return { quizId: a.quizId, correct: correctOpt ? a.optionId === correctOpt.id : false, correctOptionId: correctOpt?.id ?? null };
+  });
+  res.json({ score: results.filter((r) => r.correct).length, total: answers.length, results });
+});
+
+export default router;

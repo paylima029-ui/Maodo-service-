@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Maodo Services"
+version = "1.0.0"
+id = "artifacts/maodo-services"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18357
+
+[services.development]
+run = "pnpm --filter @workspace/maodo-services run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/maodo-services", "run", "build" ]
+publicDir = "artifacts/maodo-services/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18357"
+BASE_PATH = "/"

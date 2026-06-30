@@ -1,8 +1,14 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { seed } from "./lib/seed";
+import { initDb } from "./lib/initDb";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app: Express = express();
 
@@ -30,5 +36,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+const frontendDist = path.resolve(__dirname, "../../maodo-services/dist/public");
+app.use(express.static(frontendDist));
+app.get("/{*path}", (_req, res) => {
+  res.sendFile(path.join(frontendDist, "index.html"));
+});
+
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  const message = err instanceof Error ? err.message : "Erreur interne du serveur";
+  req.log.error({ err }, "Unhandled error");
+  if (!res.headersSent) {
+    res.status(500).json({ error: message });
+  }
+});
+
+initDb(logger)
+  .then(() => seed(logger))
+  .catch((err) => logger.error({ err }, "DB init/seed failed"));
 
 export default app;

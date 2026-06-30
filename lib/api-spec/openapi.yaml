@@ -280,6 +280,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /formation-completions:
+    post:
+      operationId: recordFormationCompletion
+      tags: [formations]
+      summary: Record a formation completion (certificate downloaded)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormationCompletionInput"
+      responses:
+        "201":
+          description: Completion recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: integer
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/formation-stats:
+    get:
+      operationId: getFormationStats
+      tags: [formations]
+      summary: Get completion stats per formation (admin)
+      responses:
+        "200":
+          description: Stats per formation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FormationStat"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /formation-orders:
     post:
       operationId: createFormationOrder
@@ -1222,6 +1272,41 @@ components:
           type: boolean
         price:
           type: ["integer", "null"]
+
+    FormationCompletionInput:
+      type: object
+      required: [formationId, clientName, formationTitle]
+      properties:
+        formationId:
+          type: integer
+        formationTitle:
+          type: string
+        clientName:
+          type: string
+
+    FormationLearner:
+      type: object
+      required: [name, completedAt]
+      properties:
+        name:
+          type: string
+        completedAt:
+          type: string
+
+    FormationStat:
+      type: object
+      required: [formationId, formationTitle, totalCompletions, learners]
+      properties:
+        formationId:
+          type: integer
+        formationTitle:
+          type: string
+        totalCompletions:
+          type: integer
+        learners:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormationLearner"
 
     FormationOrderInput:
       type: object

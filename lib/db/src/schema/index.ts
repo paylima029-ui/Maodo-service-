@@ -109,6 +109,17 @@ export const quizOptionsTable = pgTable("quiz_options", {
   order: integer("order").notNull().default(0),
 });
 
+export const formationCompletionsTable = pgTable("formation_completions", {
+  id: serial("id").primaryKey(),
+  formationId: integer("formation_id").notNull(),
+  formationTitle: text("formation_title").notNull(),
+  clientName: text("client_name").notNull(),
+  completedAt: timestamp("completed_at").notNull().defaultNow(),
+});
+
+export type FormationCompletion = typeof formationCompletionsTable.$inferSelect;
+export type InsertFormationCompletion = typeof formationCompletionsTable.$inferInsert;
+
 export type Formation = typeof formationsTable.$inferSelect;
 export type InsertFormation = typeof formationsTable.$inferInsert;
 export type Module = typeof modulesTable.$inferSelect;

@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq, asc, inArray } from "drizzle-orm";
 import multer from "multer";
-import { db, formationsTable, modulesTable, lessonsTable, quizzesTable, quizOptionsTable, ordersTable } from "@workspace/db";
+import { db, formationsTable, modulesTable, lessonsTable, quizzesTable, quizOptionsTable, ordersTable, formationCompletionsTable } from "@workspace/db";
+import { desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();

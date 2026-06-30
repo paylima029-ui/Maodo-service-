@@ -267,6 +267,24 @@ export interface FormationInput {
   price?: number | null;
 }
 
+export interface FormationCompletionInput {
+  formationId: number;
+  formationTitle: string;
+  clientName: string;
+}
+
+export interface FormationLearner {
+  name: string;
+  completedAt: string;
+}
+
+export interface FormationStat {
+  formationId: number;
+  formationTitle: string;
+  totalCompletions: number;
+  learners: FormationLearner[];
+}
+
 export interface FormationOrderInput {
   formationId: number;
   clientName: string;
@@ -322,6 +340,10 @@ export const ListOrdersStatus = {
   completed: 'completed',
   cancelled: 'cancelled',
 } as const;
+
+export type RecordFormationCompletion201 = {
+  id: number;
+};
 
 export type DeleteFormation200 = {
   id: number;

@@ -268,6 +268,35 @@ export const GetOrderByReferenceResponse = zod.object({
 
 
 /**
+ * @summary Record a formation completion (certificate downloaded)
+ */
+export const RecordFormationCompletionBody = zod.object({
+  "formationId": zod.number(),
+  "formationTitle": zod.string(),
+  "clientName": zod.string()
+})
+
+export const RecordFormationCompletionResponse = zod.object({
+  "id": zod.number()
+})
+
+
+/**
+ * @summary Get completion stats per formation (admin)
+ */
+export const GetFormationStatsResponseItem = zod.object({
+  "formationId": zod.number(),
+  "formationTitle": zod.string(),
+  "totalCompletions": zod.number(),
+  "learners": zod.array(zod.object({
+  "name": zod.string(),
+  "completedAt": zod.string()
+}))
+})
+export const GetFormationStatsResponse = zod.array(GetFormationStatsResponseItem)
+
+
+/**
  * @summary Create a purchase order for a paid formation
  */
 export const CreateFormationOrderBody = zod.object({

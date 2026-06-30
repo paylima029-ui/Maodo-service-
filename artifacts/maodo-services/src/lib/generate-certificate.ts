@@ -1,12 +1,13 @@
 import { jsPDF } from "jspdf";
 
 export function generateCertificate(params: {
+  formationId?: number;
   recipientName: string;
   formationTitle: string;
   formationCategory: string;
   completionDate?: Date;
 }) {
-  const { recipientName, formationTitle, completionDate = new Date() } = params;
+  const { formationId, recipientName, formationTitle, completionDate = new Date() } = params;
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
@@ -161,4 +162,18 @@ export function generateCertificate(params: {
 
   const fileName = `certificat-${formationTitle.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}.pdf`;
   doc.save(fileName);
+
+  // ── Record completion on server (once per formation) ──────────
+  if (formationId) {
+    const key = `formation_cert_sent_${formationId}`;
+    if (!localStorage.getItem(key)) {
+      fetch("/api/formation-completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formationId, clientName: recipientName, formationTitle }),
+      })
+        .then(() => localStorage.setItem(key, "1"))
+        .catch(() => {});
+    }
+  }
 }

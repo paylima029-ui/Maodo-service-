@@ -6,6 +6,7 @@ import {
   useCreateService, useUpdateService, useDeleteService,
   useDeleteOrder, useClearOrderHistory,
   useGetVisitStats, useGetTodayVisits,
+  useGetFormationStats,
 } from "@workspace/api-client-react";
 import type { Service, Order, Formation, Module, Lesson } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ChevronDown, Phone, Mail, FileText, Download, Plus, Pencil, Trash2, LogOut, ImagePlus, X, LayoutDashboard, Package, ShoppingBag, BarChart2, Users, TrendingUp, GraduationCap, BookOpen, Video, Image as ImageIcon, ChevronRight, ChevronDown as ChevDown, ListChecks, Loader2, Eye, Code2, LockKeyhole, LockKeyholeOpen } from "lucide-react";
+import { ChevronDown, Phone, Mail, FileText, Download, Plus, Pencil, Trash2, LogOut, ImagePlus, X, LayoutDashboard, Package, ShoppingBag, BarChart2, Users, TrendingUp, GraduationCap, BookOpen, Video, Image as ImageIcon, ChevronRight, ChevronDown as ChevDown, ListChecks, Loader2, Eye, Code2, LockKeyhole, LockKeyholeOpen, Award } from "lucide-react";
 import { LessonContent, SyntaxGuide } from "@/components/lesson-content";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -251,6 +252,7 @@ export default function Admin() {
 
   const { data: todayVisits } = useGetTodayVisits();
   const { data: visitStats = [] } = useGetVisitStats();
+  const { data: formationStats = [] } = useGetFormationStats();
 
   const token = localStorage.getItem("maodo_admin_token");
   const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -794,6 +796,48 @@ export default function Admin() {
                     ))}
                   </div>
                 )}
+
+                {/* ── Apprenants & Certificats ── */}
+                <div className="mt-8">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <Award className="w-3.5 h-3.5 text-amber-500" /> Apprenants & Certificats
+                  </h3>
+                  {formationStats.every(s => s.totalCompletions === 0) ? (
+                    <div className="py-8 text-center bg-muted/30 rounded-lg border border-dashed">
+                      <Award className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
+                      <p className="text-xs text-muted-foreground">Aucun certificat téléchargé pour l'instant.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {formationStats.filter(s => s.totalCompletions > 0).map(stat => (
+                        <Card key={stat.formationId} className="shadow-sm border-amber-100">
+                          <CardHeader className="p-4 pb-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <CardTitle className="text-sm font-bold truncate">{stat.formationTitle}</CardTitle>
+                              <Badge className="bg-amber-100 text-amber-800 border border-amber-200 shrink-0 gap-1">
+                                <Award className="w-3 h-3" /> {stat.totalCompletions} certificat{stat.totalCompletions > 1 ? "s" : ""}
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-4 pt-1">
+                            <div className="flex flex-col gap-1">
+                              {stat.learners.map((learner, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs bg-amber-50/60 rounded-md px-3 py-1.5">
+                                  <span className="font-medium flex items-center gap-1.5">
+                                    <Users className="w-3 h-3 text-amber-600" /> {learner.name}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {new Date(learner.completedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

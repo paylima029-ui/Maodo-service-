@@ -139,6 +139,41 @@ router.post("/admin/lessons/:id/media", requireAuth, imageUpload.single("media")
   res.json(formatLesson(lesson));
 });
 
+router.post("/formation-completions", async (req, res): Promise<void> => {
+  const { formationId, clientName, formationTitle } = req.body as {
+    formationId?: number; clientName?: string; formationTitle?: string;
+  };
+  if (!formationId || !clientName) {
+    res.status(400).json({ error: "Champs requis: formationId, clientName" });
+    return;
+  }
+  const [completion] = await db
+    .insert(formationCompletionsTable)
+    .values({ formationId, clientName: clientName.trim(), formationTitle: formationTitle ?? "" })
+    .returning();
+  res.status(201).json({ id: completion.id });
+});
+
+router.get("/admin/formation-stats", requireAuth, async (_req, res): Promise<void> => {
+  const formations = await db.select().from(formationsTable).orderBy(asc(formationsTable.id));
+  const completions = await db.select().from(formationCompletionsTable).orderBy(desc(formationCompletionsTable.completedAt));
+
+  const stats = formations.map((f) => {
+    const fCompletions = completions.filter((c) => c.formationId === f.id);
+    return {
+      formationId: f.id,
+      formationTitle: f.title,
+      totalCompletions: fCompletions.length,
+      learners: fCompletions.map((c) => ({
+        name: c.clientName,
+        completedAt: c.completedAt.toISOString(),
+      })),
+    };
+  });
+
+  res.json(stats);
+});
+
 router.post("/formation-orders", async (req, res): Promise<void> => {
   const { formationId, clientName, clientPhone, clientEmail } = req.body as {
     formationId?: number; clientName?: string; clientPhone?: string; clientEmail?: string;

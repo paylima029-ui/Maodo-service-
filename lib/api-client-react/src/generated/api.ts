@@ -32,9 +32,11 @@ import type {
   DeleteService200,
   ErrorResponse,
   Formation,
+  FormationCompletionInput,
   FormationInput,
   FormationOrderInput,
   FormationOrderResponse,
+  FormationStat,
   FormationWithModules,
   HealthStatus,
   Lesson,
@@ -48,6 +50,7 @@ import type {
   PaymentCreateInput,
   PaymentCreateResponse,
   PaymentStatusResponse,
+  RecordFormationCompletion201,
   Service,
   ServiceInput,
   ServiceUpdateInput,
@@ -891,6 +894,153 @@ export function useGetOrderByReference<TData = Awaited<ReturnType<typeof getOrde
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetOrderByReferenceQueryOptions(reference,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecordFormationCompletionUrl = () => {
+
+
+
+
+  return `/api/formation-completions`
+}
+
+/**
+ * @summary Record a formation completion (certificate downloaded)
+ */
+export const recordFormationCompletion = async (formationCompletionInput: FormationCompletionInput, options?: RequestInit): Promise<RecordFormationCompletion201> => {
+
+  return customFetch<RecordFormationCompletion201>(getRecordFormationCompletionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(formationCompletionInput)
+  }
+);}
+
+
+
+
+export const getRecordFormationCompletionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordFormationCompletion>>, TError,{data: BodyType<FormationCompletionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordFormationCompletion>>, TError,{data: BodyType<FormationCompletionInput>}, TContext> => {
+
+const mutationKey = ['recordFormationCompletion'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordFormationCompletion>>, {data: BodyType<FormationCompletionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordFormationCompletion(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordFormationCompletionMutationResult = NonNullable<Awaited<ReturnType<typeof recordFormationCompletion>>>
+    export type RecordFormationCompletionMutationBody = BodyType<FormationCompletionInput>
+    export type RecordFormationCompletionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Record a formation completion (certificate downloaded)
+ */
+export const useRecordFormationCompletion = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordFormationCompletion>>, TError,{data: BodyType<FormationCompletionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordFormationCompletion>>,
+        TError,
+        {data: BodyType<FormationCompletionInput>},
+        TContext
+      > => {
+      return useMutation(getRecordFormationCompletionMutationOptions(options));
+    }
+
+export const getGetFormationStatsUrl = () => {
+
+
+
+
+  return `/api/admin/formation-stats`
+}
+
+/**
+ * @summary Get completion stats per formation (admin)
+ */
+export const getFormationStats = async ( options?: RequestInit): Promise<FormationStat[]> => {
+
+  return customFetch<FormationStat[]>(getGetFormationStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFormationStatsQueryKey = () => {
+    return [
+    `/api/admin/formation-stats`
+    ] as const;
+    }
+
+
+export const getGetFormationStatsQueryOptions = <TData = Awaited<ReturnType<typeof getFormationStats>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFormationStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFormationStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFormationStats>>> = ({ signal }) => getFormationStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFormationStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFormationStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getFormationStats>>>
+export type GetFormationStatsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get completion stats per formation (admin)
+ */
+
+export function useGetFormationStats<TData = Awaited<ReturnType<typeof getFormationStats>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFormationStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFormationStatsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

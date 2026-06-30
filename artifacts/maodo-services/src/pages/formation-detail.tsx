@@ -123,12 +123,14 @@ function CertificateDialog({
   open,
   onClose,
   defaultName,
+  formationId,
   formationTitle,
   formationCategory,
 }: {
   open: boolean;
   onClose: () => void;
   defaultName: string;
+  formationId: number;
   formationTitle: string;
   formationCategory: string;
 }) {
@@ -138,7 +140,7 @@ function CertificateDialog({
     const trimmed = name.trim();
     if (!trimmed) { toast.error("Veuillez saisir votre nom"); return; }
     try {
-      generateCertificate({ recipientName: trimmed, formationTitle, formationCategory });
+      generateCertificate({ formationId, recipientName: trimmed, formationTitle, formationCategory });
       toast.success("Certificat téléchargé !");
       onClose();
     } catch {
@@ -336,6 +338,7 @@ export default function FormationDetail() {
           open={certOpen}
           onClose={() => setCertOpen(false)}
           defaultName={getSavedName(formationId)}
+          formationId={formationId}
           formationTitle={formation.title}
           formationCategory={formation.category}
         />

@@ -4,10 +4,30 @@ import type { Lesson } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, BookOpen, ChevronRight, Loader2, PlayCircle, Image as ImageIcon, CheckCircle, LockKeyhole, ShoppingCart } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  ArrowLeft,
+  BookOpen,
+  ChevronRight,
+  Loader2,
+  PlayCircle,
+  Image as ImageIcon,
+  CheckCircle,
+  LockKeyhole,
+  ShoppingCart,
+  Award,
+  Download,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/constants";
+import { generateCertificate } from "@/lib/generate-certificate";
 
 function getProgress(formationId: number): Record<number, boolean> {
   try {
@@ -16,10 +36,15 @@ function getProgress(formationId: number): Record<number, boolean> {
   } catch { return {}; }
 }
 
+function getSavedName(formationId: number): string {
+  return localStorage.getItem(`formation_name_${formationId}`) ?? "";
+}
+
 function hasFormationAccess(formationId: number): boolean {
   return localStorage.getItem(`formation_access_${formationId}`) === "1";
 }
 
+// ── Paywall ────────────────────────────────────────────────────────────────
 function FormationPaywall({ formationId, title, price }: { formationId: number; title: string; price: number }) {
   const [, setLocation] = useLocation();
   const [name, setName] = useState("");
@@ -38,6 +63,7 @@ function FormationPaywall({ formationId, title, price }: { formationId: number; 
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Erreur lors de la commande"); return; }
+      localStorage.setItem(`formation_name_${formationId}`, name.trim());
       setLocation(`/payment/${data.orderId}?formationId=${formationId}`);
     } catch {
       toast.error("Erreur réseau. Veuillez réessayer.");
@@ -48,10 +74,7 @@ function FormationPaywall({ formationId, title, price }: { formationId: number; 
 
   return (
     <div className="flex flex-col flex-1 bg-muted/20">
-      <div
-        className="relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)" }}
-      >
+      <div className="relative overflow-hidden" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)" }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 relative z-10">
           <Link href="/formations">
             <button className="flex items-center gap-1.5 text-blue-200 hover:text-white text-sm mb-4 transition-colors">
@@ -77,36 +100,17 @@ function FormationPaywall({ formationId, title, price }: { formationId: number; 
           <form onSubmit={handleBuy} className="p-6 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="pw-name">Votre nom complet</Label>
-              <Input
-                id="pw-name"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Ex: Amadou Diallo"
-                required
-              />
+              <Input id="pw-name" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Amadou Diallo" required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pw-phone">Numéro de téléphone (Wave / Orange)</Label>
-              <Input
-                id="pw-phone"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="Ex: +221 77 000 00 00"
-                required
-              />
+              <Input id="pw-phone" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Ex: +221 77 000 00 00" required />
             </div>
-            <Button
-              type="submit"
-              className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-white"
-              size="lg"
-              disabled={loading}
-            >
+            <Button type="submit" className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-white" size="lg" disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
               {loading ? "Traitement..." : `Acheter l'accès · ${formatPrice(price)}`}
             </Button>
-            <p className="text-xs text-center text-muted-foreground">
-              Paiement sécurisé via Wave ou Orange Money
-            </p>
+            <p className="text-xs text-center text-muted-foreground">Paiement sécurisé via Wave ou Orange Money</p>
           </form>
         </div>
       </div>
@@ -114,14 +118,87 @@ function FormationPaywall({ formationId, title, price }: { formationId: number; 
   );
 }
 
+// ── Certificate dialog ──────────────────────────────────────────────────────
+function CertificateDialog({
+  open,
+  onClose,
+  defaultName,
+  formationTitle,
+  formationCategory,
+}: {
+  open: boolean;
+  onClose: () => void;
+  defaultName: string;
+  formationTitle: string;
+  formationCategory: string;
+}) {
+  const [name, setName] = useState(defaultName);
+
+  const handleGenerate = () => {
+    const trimmed = name.trim();
+    if (!trimmed) { toast.error("Veuillez saisir votre nom"); return; }
+    try {
+      generateCertificate({ recipientName: trimmed, formationTitle, formationCategory });
+      toast.success("Certificat téléchargé !");
+      onClose();
+    } catch {
+      toast.error("Erreur lors de la génération du certificat.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-amber-500" /> Votre certificat
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+            <div className="text-3xl mb-2">🏆</div>
+            <p className="text-sm font-semibold text-amber-800">Félicitations !</p>
+            <p className="text-xs text-amber-700 mt-1">
+              Vous avez complété <span className="font-bold">100%</span> de la formation.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="cert-name">Nom à afficher sur le certificat</Label>
+            <Input
+              id="cert-name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ex: Amadou Diallo"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button className="gap-2 bg-amber-500 hover:bg-amber-600 text-white" onClick={handleGenerate}>
+            <Download className="w-4 h-4" /> Télécharger le PDF
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Main component ──────────────────────────────────────────────────────────
 export default function FormationDetail() {
   const { id } = useParams<{ id: string }>();
   const formationId = parseInt(id, 10);
   const { data: formation, isLoading } = useGetFormation(formationId);
 
+  const [certOpen, setCertOpen] = useState(false);
+
   const progress = formation ? getProgress(formationId) : {};
   const allLessons: Lesson[] = formation?.modules.flatMap((m) => m.lessons) ?? [];
   const doneLessons = allLessons.filter((l) => progress[l.id]).length;
+  const isComplete = allLessons.length > 0 && doneLessons === allLessons.length;
 
   if (isLoading) {
     return (
@@ -148,10 +225,7 @@ export default function FormationDetail() {
     <div className="flex flex-col flex-1 bg-muted/20">
 
       {/* Header */}
-      <div
-        className="relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)" }}
-      >
+      <div className="relative overflow-hidden" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)" }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 relative z-10">
           <Link href="/formations">
             <button className="flex items-center gap-1.5 text-blue-200 hover:text-white text-sm mb-4 transition-colors">
@@ -162,20 +236,50 @@ export default function FormationDetail() {
           <p className="text-blue-100 text-sm mb-4">{formation.description}</p>
 
           {allLessons.length > 0 && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="bg-white/20 rounded-full px-3 py-1 text-white text-xs font-medium">
                 {doneLessons}/{allLessons.length} leçons complétées
               </div>
               <div className="flex-1 max-w-xs bg-white/20 rounded-full h-1.5">
                 <div
                   className="bg-yellow-300 h-1.5 rounded-full transition-all"
-                  style={{ width: `${allLessons.length > 0 ? (doneLessons / allLessons.length) * 100 : 0}%` }}
+                  style={{ width: `${(doneLessons / allLessons.length) * 100}%` }}
                 />
               </div>
+              {isComplete && (
+                <button
+                  onClick={() => setCertOpen(true)}
+                  className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-amber-900 text-xs font-bold px-3 py-1.5 rounded-full transition-colors shadow"
+                >
+                  <Award className="w-3.5 h-3.5" /> Obtenir mon certificat
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Certificate completion banner */}
+      {isComplete && (
+        <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 pt-5">
+          <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+              <Award className="w-6 h-6 text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-amber-900 text-sm">🎉 Félicitations, formation complétée !</p>
+              <p className="text-xs text-amber-700 mt-0.5">Vous avez terminé toutes les leçons. Téléchargez votre certificat de réussite.</p>
+            </div>
+            <Button
+              size="sm"
+              className="gap-2 bg-amber-500 hover:bg-amber-600 text-white shrink-0"
+              onClick={() => setCertOpen(true)}
+            >
+              <Download className="w-4 h-4" /> Certificat
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Modules & Lessons */}
       <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
@@ -225,6 +329,17 @@ export default function FormationDetail() {
           </div>
         )}
       </div>
+
+      {/* Certificate dialog */}
+      {certOpen && (
+        <CertificateDialog
+          open={certOpen}
+          onClose={() => setCertOpen(false)}
+          defaultName={getSavedName(formationId)}
+          formationTitle={formation.title}
+          formationCategory={formation.category}
+        />
+      )}
     </div>
   );
 }

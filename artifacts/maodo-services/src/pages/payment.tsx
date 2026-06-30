@@ -47,6 +47,17 @@ export default function Payment({ params }: { params: { orderId: string } }) {
 
   const { data: order, isLoading } = useGetOrder(Number(params.orderId));
 
+  const formationId = new URLSearchParams(window.location.search).get("formationId");
+
+  const handleSuccess = () => {
+    if (formationId) {
+      localStorage.setItem(`formation_access_${formationId}`, "1");
+      setTimeout(() => setLocation(`/formations/${formationId}`), 2000);
+    } else {
+      setTimeout(() => setLocation(`/tracking/${order?.reference}`), 2000);
+    }
+  };
+
   useEffect(() => {
     if (state !== "polling" || !transactionId) return;
 
@@ -58,7 +69,7 @@ export default function Payment({ params }: { params: { orderId: string } }) {
           clearInterval(interval);
           queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(Number(params.orderId)) });
           setState("success");
-          setTimeout(() => setLocation(`/tracking/${order?.reference}`), 2000);
+          handleSuccess();
         } else if (["failed", "cancelled", "expired"].includes(data.status)) {
           clearInterval(interval);
           setState("failed");

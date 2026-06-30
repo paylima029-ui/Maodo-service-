@@ -57,6 +57,8 @@ export const formationsTable = pgTable("formations", {
   category: text("category").notNull().default("general"),
   imageUrl: text("image_url"),
   active: boolean("active").notNull().default(true),
+  isPaid: boolean("is_paid").notNull().default(false),
+  price: integer("price"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

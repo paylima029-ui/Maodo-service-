@@ -264,8 +264,8 @@ export default function Admin() {
     },
   });
 
-  type FormationForm = { slug: string; title: string; description: string; category: string; active: boolean };
-  const emptyFormationForm: FormationForm = { slug: "", title: "", description: "", category: "general", active: true };
+  type FormationForm = { slug: string; title: string; description: string; category: string; active: boolean; isPaid: boolean; price: string };
+  const emptyFormationForm: FormationForm = { slug: "", title: "", description: "", category: "general", active: true, isPaid: false, price: "" };
   const [formationDialog, setFormationDialog] = useState<{ open: boolean; editing: Formation | null }>({ open: false, editing: null });
   const [formationForm, setFormationForm] = useState<FormationForm>(emptyFormationForm);
   const [deleteFormationDialog, setDeleteFormationDialog] = useState<{ open: boolean; formation: Formation | null }>({ open: false, formation: null });
@@ -275,7 +275,8 @@ export default function Admin() {
 
   const createFormationMut = useMutation({
     mutationFn: async ({ body, imageFile }: { body: FormationForm; imageFile: File | null }) => {
-      const res = await fetch("/api/admin/formations", { method: "POST", headers: authHeaders, body: JSON.stringify({ ...body, imageUrl: null }) });
+      const priceParsed = body.isPaid ? (parseInt(body.price, 10) || null) : null;
+      const res = await fetch("/api/admin/formations", { method: "POST", headers: authHeaders, body: JSON.stringify({ ...body, price: priceParsed, imageUrl: null }) });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "Erreur"); }
       const formation = await res.json();
       if (imageFile) {
@@ -292,7 +293,8 @@ export default function Admin() {
   const updateFormationMut = useMutation({
     mutationFn: async ({ id, body, imageFile, currentImageUrl }: { id: number; body: FormationForm; imageFile: File | null; currentImageUrl?: string | null }) => {
       const imageUrl = imageFile ? null : (currentImageUrl ?? null);
-      const res = await fetch(`/api/admin/formations/${id}`, { method: "PUT", headers: authHeaders, body: JSON.stringify({ ...body, imageUrl }) });
+      const priceParsed = body.isPaid ? (parseInt(body.price, 10) || null) : null;
+      const res = await fetch(`/api/admin/formations/${id}`, { method: "PUT", headers: authHeaders, body: JSON.stringify({ ...body, price: priceParsed, imageUrl }) });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "Erreur"); }
       if (imageFile) {
         const fd = new FormData();
@@ -316,7 +318,7 @@ export default function Admin() {
 
   const toggleFormationActiveMut = useMutation({
     mutationFn: async (formation: Formation) => {
-      const body = { slug: formation.slug, title: formation.title, description: formation.description, category: formation.category, imageUrl: formation.imageUrl ?? null, active: !formation.active };
+      const body = { slug: formation.slug, title: formation.title, description: formation.description, category: formation.category, imageUrl: formation.imageUrl ?? null, active: !formation.active, isPaid: (formation as any).isPaid ?? false, price: (formation as any).price ?? null };
       const res = await fetch(`/api/admin/formations/${formation.id}`, { method: "PUT", headers: authHeaders, body: JSON.stringify(body) });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? "Erreur"); }
       return res.json();
@@ -718,7 +720,7 @@ export default function Admin() {
                               <Button
                                 variant="ghost" size="icon" className="h-7 w-7"
                                 onClick={() => {
-                                  setFormationForm({ slug: formation.slug, title: formation.title, description: formation.description, category: formation.category, active: formation.active });
+                                  setFormationForm({ slug: formation.slug, title: formation.title, description: formation.description, category: formation.category, active: formation.active, isPaid: (formation as any).isPaid ?? false, price: String((formation as any).price ?? "") });
                                   setFormationImageFile(null);
                                   setFormationImagePreview(formation.imageUrl ?? null);
                                   setFormationDialog({ open: true, editing: formation });
@@ -1041,6 +1043,33 @@ export default function Admin() {
               <input type="checkbox" id="fm-active" checked={formationForm.active} onChange={e => setFormationForm(f => ({ ...f, active: e.target.checked }))} className="rounded" />
               <Label htmlFor="fm-active">Formation active (visible publiquement)</Label>
             </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="fm-ispaid"
+                checked={formationForm.isPaid}
+                onChange={e => setFormationForm(f => ({ ...f, isPaid: e.target.checked, price: e.target.checked ? f.price : "" }))}
+                className="rounded"
+              />
+              <Label htmlFor="fm-ispaid">Formation payante</Label>
+            </div>
+            {formationForm.isPaid && (
+              <div className="space-y-1">
+                <Label htmlFor="fm-price">Prix (FCFA)</Label>
+                <Input
+                  id="fm-price"
+                  type="number"
+                  min="100"
+                  step="100"
+                  value={formationForm.price}
+                  onChange={e => setFormationForm(f => ({ ...f, price: e.target.value }))}
+                  placeholder="ex: 5000"
+                  required
+                />
+              </div>
+            )}
+
             <DialogFooter className="pt-2">
               <Button type="button" variant="ghost" onClick={() => { setFormationDialog({ open: false, editing: null }); setFormationImageFile(null); setFormationImagePreview(null); }}>Annuler</Button>
               <Button type="submit" disabled={createFormationMut.isPending || updateFormationMut.isPending}>

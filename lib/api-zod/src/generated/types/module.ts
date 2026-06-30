@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface Module {
+  id: number;
+  formationId: number;
+  title: string;
+  order: number;
+  createdAt: string;
 }

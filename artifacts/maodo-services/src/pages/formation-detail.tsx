@@ -1,15 +1,117 @@
-import { Link, useParams } from "wouter";
+import { Link, useParams, useLocation } from "wouter";
 import { useGetFormation } from "@workspace/api-client-react";
 import type { Lesson } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BookOpen, ChevronRight, Loader2, PlayCircle, Image as ImageIcon, CheckCircle } from "lucide-react";
-import { useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, BookOpen, ChevronRight, Loader2, PlayCircle, Image as ImageIcon, CheckCircle, LockKeyhole, ShoppingCart } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { formatPrice } from "@/lib/constants";
 
 function getProgress(formationId: number): Record<number, boolean> {
   try {
     const raw = localStorage.getItem(`formation_progress_${formationId}`);
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
+}
+
+function hasFormationAccess(formationId: number): boolean {
+  return localStorage.getItem(`formation_access_${formationId}`) === "1";
+}
+
+function FormationPaywall({ formationId, title, price }: { formationId: number; title: string; price: number }) {
+  const [, setLocation] = useLocation();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleBuy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim()) { toast.error("Nom et téléphone requis"); return; }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/formation-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formationId, clientName: name.trim(), clientPhone: phone.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? "Erreur lors de la commande"); return; }
+      setLocation(`/payment/${data.orderId}?formationId=${formationId}`);
+    } catch {
+      toast.error("Erreur réseau. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col flex-1 bg-muted/20">
+      <div
+        className="relative overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%)" }}
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 relative z-10">
+          <Link href="/formations">
+            <button className="flex items-center gap-1.5 text-blue-200 hover:text-white text-sm mb-4 transition-colors">
+              <ArrowLeft className="w-4 h-4" /> Toutes les formations
+            </button>
+          </Link>
+          <h1 className="text-white font-extrabold text-xl sm:text-2xl mb-1">{title}</h1>
+          <p className="text-blue-100 text-sm">Formation payante</p>
+        </div>
+      </div>
+
+      <div className="max-w-md mx-auto w-full px-4 py-10">
+        <div className="bg-card border rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-amber-50 border-b border-amber-100 p-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
+              <LockKeyhole className="w-7 h-7 text-amber-600" />
+            </div>
+            <h2 className="font-bold text-lg mb-1">Formation payante</h2>
+            <p className="text-muted-foreground text-sm mb-3">Achetez un accès pour débloquer tous les modules et leçons.</p>
+            <div className="text-3xl font-extrabold text-amber-600">{formatPrice(price)}</div>
+          </div>
+
+          <form onSubmit={handleBuy} className="p-6 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="pw-name">Votre nom complet</Label>
+              <Input
+                id="pw-name"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Ex: Amadou Diallo"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pw-phone">Numéro de téléphone (Wave / Orange)</Label>
+              <Input
+                id="pw-phone"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="Ex: +221 77 000 00 00"
+                required
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-white"
+              size="lg"
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+              {loading ? "Traitement..." : `Acheter l'accès · ${formatPrice(price)}`}
+            </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              Paiement sécurisé via Wave ou Orange Money
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function FormationDetail() {
@@ -36,6 +138,10 @@ export default function FormationDetail() {
         <Link href="/formations"><Button variant="outline"><ArrowLeft className="w-4 h-4 mr-2" />Retour</Button></Link>
       </div>
     );
+  }
+
+  if (formation.isPaid && !hasFormationAccess(formationId)) {
+    return <FormationPaywall formationId={formationId} title={formation.title} price={formation.price!} />;
   }
 
   return (

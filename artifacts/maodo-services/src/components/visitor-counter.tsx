@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Users } from "lucide-react";
-import { useRecordVisit, useGetTodayVisits } from "@workspace/api-client-react";
+import { useRecordVisit, useGetTodayVisits, getGetTodayVisitsQueryKey } from "@workspace/api-client-react";
 
 function getTodayKey() {
   return "visit_" + new Date().toISOString().split("T")[0];
@@ -10,7 +10,7 @@ export function VisitorCounter() {
   const alreadyCounted = typeof localStorage !== "undefined" && localStorage.getItem(getTodayKey()) === "1";
 
   const { mutate, data: mutateData } = useRecordVisit();
-  const { data: todayData } = useGetTodayVisits({ query: { enabled: alreadyCounted } });
+  const { data: todayData } = useGetTodayVisits({ query: { enabled: alreadyCounted, queryKey: getGetTodayVisitsQueryKey() } });
 
   useEffect(() => {
     if (!alreadyCounted) {

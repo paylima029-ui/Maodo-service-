@@ -280,6 +280,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /formation-orders:
+    post:
+      operationId: createFormationOrder
+      tags: [formations]
+      summary: Create a purchase order for a paid formation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormationOrderInput"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormationOrderResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Formation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /formations:
     get:
       operationId: listFormations
@@ -1057,7 +1088,7 @@ components:
 
     Formation:
       type: object
-      required: [id, slug, title, description, category, active, createdAt, updatedAt]
+      required: [id, slug, title, description, category, active, isPaid, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -1073,6 +1104,10 @@ components:
           type: ["string", "null"]
         active:
           type: boolean
+        isPaid:
+          type: boolean
+        price:
+          type: ["integer", "null"]
         createdAt:
           type: string
         updatedAt:
@@ -1080,7 +1115,7 @@ components:
 
     FormationWithModules:
       type: object
-      required: [id, slug, title, description, category, active, createdAt, updatedAt, modules]
+      required: [id, slug, title, description, category, active, isPaid, createdAt, updatedAt, modules]
       properties:
         id:
           type: integer
@@ -1096,6 +1131,10 @@ components:
           type: ["string", "null"]
         active:
           type: boolean
+        isPaid:
+          type: boolean
+        price:
+          type: ["integer", "null"]
         createdAt:
           type: string
         updatedAt:
@@ -1179,6 +1218,32 @@ components:
           type: ["string", "null"]
         active:
           type: boolean
+        isPaid:
+          type: boolean
+        price:
+          type: ["integer", "null"]
+
+    FormationOrderInput:
+      type: object
+      required: [formationId, clientName, clientPhone]
+      properties:
+        formationId:
+          type: integer
+        clientName:
+          type: string
+        clientPhone:
+          type: string
+        clientEmail:
+          type: ["string", "null"]
+
+    FormationOrderResponse:
+      type: object
+      required: [orderId, reference]
+      properties:
+        orderId:
+          type: integer
+        reference:
+          type: string
 
     ModuleInput:
       type: object

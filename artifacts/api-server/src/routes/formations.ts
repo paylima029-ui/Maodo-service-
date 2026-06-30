@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, asc, inArray } from "drizzle-orm";
 import multer from "multer";
-import { db, formationsTable, modulesTable, lessonsTable, quizzesTable, quizOptionsTable } from "@workspace/db";
+import { db, formationsTable, modulesTable, lessonsTable, quizzesTable, quizOptionsTable, ordersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
@@ -138,10 +138,55 @@ router.post("/admin/lessons/:id/media", requireAuth, imageUpload.single("media")
   res.json(formatLesson(lesson));
 });
 
+router.post("/formation-orders", async (req, res): Promise<void> => {
+  const { formationId, clientName, clientPhone, clientEmail } = req.body as {
+    formationId?: number; clientName?: string; clientPhone?: string; clientEmail?: string;
+  };
+
+  if (!formationId || !clientName || !clientPhone) {
+    res.status(400).json({ error: "Champs requis: formationId, clientName, clientPhone" });
+    return;
+  }
+
+  const [formation] = await db
+    .select()
+    .from(formationsTable)
+    .where(eq(formationsTable.id, formationId));
+
+  if (!formation) { res.status(404).json({ error: "Formation introuvable" }); return; }
+  if (!formation.isPaid || !formation.price) {
+    res.status(400).json({ error: "Cette formation est gratuite" });
+    return;
+  }
+
+  const rand = Math.floor(Math.random() * 9999).toString().padStart(4, "0");
+  const reference = `FM-${formationId}-${Date.now()}-${rand}`;
+
+  const [order] = await db
+    .insert(ordersTable)
+    .values({
+      reference,
+      serviceId: `formation-${formationId}`,
+      serviceName: formation.title,
+      servicePrice: formation.price,
+      serviceDelay: null,
+      clientName: clientName.trim(),
+      clientPhone: clientPhone.trim(),
+      clientEmail: clientEmail?.trim() ?? null,
+      description: `Accès à la formation: ${formation.title}`,
+      status: "pending",
+      paymentStatus: "pending",
+    })
+    .returning();
+
+  res.status(201).json({ orderId: order.id, reference: order.reference });
+});
+
 router.post("/admin/formations", requireAuth, async (req, res): Promise<void> => {
-  const { slug, title, description, category, imageUrl, active } = req.body as {
+  const { slug, title, description, category, imageUrl, active, isPaid, price } = req.body as {
     slug?: string; title?: string; description?: string;
     category?: string; imageUrl?: string | null; active?: boolean;
+    isPaid?: boolean; price?: number | null;
   };
 
   if (!slug || !title || !description || !category) {
@@ -151,7 +196,7 @@ router.post("/admin/formations", requireAuth, async (req, res): Promise<void> =>
 
   const [formation] = await db
     .insert(formationsTable)
-    .values({ slug, title, description, category, imageUrl: imageUrl ?? null, active: active ?? true })
+    .values({ slug, title, description, category, imageUrl: imageUrl ?? null, active: active ?? true, isPaid: isPaid ?? false, price: isPaid ? (price ?? null) : null })
     .returning();
 
   res.status(201).json(formatFormation(formation));
@@ -159,9 +204,10 @@ router.post("/admin/formations", requireAuth, async (req, res): Promise<void> =>
 
 router.put("/admin/formations/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(String(req.params.id), 10);
-  const { slug, title, description, category, imageUrl, active } = req.body as {
+  const { slug, title, description, category, imageUrl, active, isPaid, price } = req.body as {
     slug?: string; title?: string; description?: string;
     category?: string; imageUrl?: string | null; active?: boolean;
+    isPaid?: boolean; price?: number | null;
   };
 
   if (!slug || !title || !description || !category) {
@@ -171,7 +217,7 @@ router.put("/admin/formations/:id", requireAuth, async (req, res): Promise<void>
 
   const [formation] = await db
     .update(formationsTable)
-    .set({ slug, title, description, category, imageUrl: imageUrl ?? null, active: active ?? true, updatedAt: new Date() })
+    .set({ slug, title, description, category, imageUrl: imageUrl ?? null, active: active ?? true, isPaid: isPaid ?? false, price: isPaid ? (price ?? null) : null, updatedAt: new Date() })
     .where(eq(formationsTable.id, id))
     .returning();
 

@@ -46,7 +46,7 @@ function extractTextFromNode(node: React.ReactNode): string {
   if (Array.isArray(node)) return node.map(extractTextFromNode).join("");
   if (node && typeof node === "object" && "props" in (node as object)) {
     const el = node as React.ReactElement;
-    return extractTextFromNode(el.props?.children);
+    return extractTextFromNode((el.props as { children?: React.ReactNode })?.children);
   }
   return "";
 }
@@ -304,7 +304,7 @@ function stripLeadingEmoji(children: React.ReactNode, emoji: string): React.Reac
     const el = children as React.ReactElement;
     return {
       ...el,
-      props: { ...el.props, children: stripLeadingEmoji(el.props?.children, emoji) },
+      props: { ...(el.props as object), children: stripLeadingEmoji((el.props as { children?: React.ReactNode })?.children, emoji) },
     };
   }
   return children;

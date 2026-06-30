@@ -3,7 +3,8 @@ import { useListFormations } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Loader2, GraduationCap, Monitor } from "lucide-react";
+import { BookOpen, Loader2, GraduationCap, Monitor, ShoppingCart } from "lucide-react";
+import { formatPrice } from "@/lib/constants";
 
 const categoryIcon: Record<string, React.ElementType> = {
   python: () => <span className="text-2xl">🐍</span>,
@@ -63,31 +64,60 @@ export default function Formations() {
             {formations.map((formation) => {
               const Icon = categoryIcon[formation.category] ?? Monitor;
               const badgeClass = categoryColor[formation.category] ?? categoryColor.general;
+              const isPaid = formation.isPaid;
+              const hasAccess = !isPaid || localStorage.getItem(`formation_access_${formation.id}`) === "1";
               return (
                 <Card key={formation.id} className="overflow-hidden flex flex-col shadow-sm border-border/50 hover:shadow-md transition-shadow">
                   {formation.imageUrl ? (
-                    <div className="h-40 w-full overflow-hidden bg-muted">
+                    <div className="h-40 w-full overflow-hidden bg-muted relative">
                       <img src={formation.imageUrl} alt={formation.title} className="w-full h-full object-cover" />
+                      {isPaid && (
+                        <div className="absolute top-2 right-2">
+                          <Badge className="bg-amber-500 text-white border-0 text-xs font-bold shadow">
+                            {hasAccess ? "✓ Accès accordé" : formatPrice(formation.price!)}
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <div className="h-40 w-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                    <div className="h-40 w-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative">
                       <Icon />
+                      {isPaid && (
+                        <div className="absolute top-2 right-2">
+                          <Badge className="bg-amber-500 text-white border-0 text-xs font-bold shadow">
+                            {hasAccess ? "✓ Accès accordé" : formatPrice(formation.price!)}
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="px-4 pt-4 pb-1 flex-1">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <h3 className="font-bold text-base leading-tight">{formation.title}</h3>
-                      <Badge variant="outline" className={`text-xs shrink-0 capitalize ${badgeClass}`}>
-                        {formation.category}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <Badge variant="outline" className={`text-xs capitalize ${badgeClass}`}>
+                          {formation.category}
+                        </Badge>
+                        {!isPaid && (
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                            Gratuit
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">{formation.description}</p>
                   </div>
                   <div className="px-4 pb-4 pt-3">
                     <Link href={`/formations/${formation.id}`} className="w-full">
-                      <Button className="w-full gap-2">
-                        <BookOpen className="w-4 h-4" /> Accéder à la formation
-                      </Button>
+                      {isPaid && !hasAccess ? (
+                        <Button className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-white">
+                          <ShoppingCart className="w-4 h-4" /> Acheter • {formatPrice(formation.price!)}
+                        </Button>
+                      ) : (
+                        <Button className="w-full gap-2">
+                          <BookOpen className="w-4 h-4" /> Accéder à la formation
+                        </Button>
+                      )}
                     </Link>
                   </div>
                 </Card>

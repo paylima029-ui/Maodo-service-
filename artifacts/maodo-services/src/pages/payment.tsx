@@ -118,7 +118,7 @@ export default function Payment({ params }: { params: { orderId: string } }) {
       if (data.simulation) {
         queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(order.id) });
         setState("success");
-        setTimeout(() => setLocation(`/tracking/${order.reference}`), 2000);
+        handleSuccess();
         return;
       }
 
@@ -142,11 +142,18 @@ export default function Payment({ params }: { params: { orderId: string } }) {
   if (state === "success") {
     return (
       <div className="flex flex-col flex-1 items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-300">
-        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle2 className="w-10 h-10" />
+        <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
+          <CheckCircle2 className="w-12 h-12" />
         </div>
         <h1 className="text-2xl font-bold mb-2">Paiement réussi !</h1>
-        <p className="text-muted-foreground">Redirection vers votre suivi...</p>
+        {formationId ? (
+          <>
+            <p className="text-muted-foreground mb-1">Votre accès à la formation est maintenant activé.</p>
+            <p className="text-sm text-muted-foreground">Redirection vers votre formation…</p>
+          </>
+        ) : (
+          <p className="text-muted-foreground">Redirection vers le suivi de votre commande…</p>
+        )}
       </div>
     );
   }

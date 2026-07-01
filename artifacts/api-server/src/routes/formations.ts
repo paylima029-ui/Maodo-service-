@@ -174,6 +174,48 @@ router.get("/admin/formation-stats", requireAuth, async (_req, res): Promise<voi
   res.json(stats);
 });
 
+// Récupérer les accès aux formations achetées via numéro de téléphone
+router.post("/formation-access/recover", async (req, res): Promise<void> => {
+  const { phone } = req.body as { phone?: string };
+  if (!phone?.trim()) {
+    res.status(400).json({ error: "Numéro de téléphone requis" });
+    return;
+  }
+
+  const normalizedPhone = phone.trim().replace(/\s+/g, "");
+
+  // Cherche toutes les commandes payées pour ce numéro de téléphone
+  const paidOrders = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.clientPhone, normalizedPhone));
+
+  // Filtre les commandes de formations payées
+  const formationOrders = paidOrders.filter(
+    (o) =>
+      o.serviceId?.startsWith("formation-") &&
+      (o.paymentStatus === "paid" || o.status === "completed")
+  );
+
+  if (formationOrders.length === 0) {
+    res.status(404).json({ error: "Aucune formation achetée trouvée pour ce numéro." });
+    return;
+  }
+
+  const formationIds = formationOrders
+    .map((o) => parseInt(o.serviceId!.replace("formation-", ""), 10))
+    .filter((id) => !isNaN(id));
+
+  const formations = formationIds.length > 0
+    ? await db
+        .select({ id: formationsTable.id, title: formationsTable.title, slug: formationsTable.slug })
+        .from(formationsTable)
+        .where(inArray(formationsTable.id, formationIds))
+    : [];
+
+  res.json({ formations });
+});
+
 router.post("/formation-orders", async (req, res): Promise<void> => {
   const { formationId, clientName, clientPhone, clientEmail } = req.body as {
     formationId?: number; clientName?: string; clientPhone?: string; clientEmail?: string;

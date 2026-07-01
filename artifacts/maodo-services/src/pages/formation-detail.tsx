@@ -11,7 +11,7 @@ import {
   ArrowLeft, BookOpen, ChevronRight, Loader2, PlayCircle,
   Image as ImageIcon, CheckCircle, LockKeyhole, ShoppingCart,
   Award, Download, GraduationCap, Layers, Play, RotateCcw,
-  Clock, ChevronDown, ChevronUp, Trophy,
+  Clock, ChevronDown, ChevronUp, Trophy, KeyRound,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -43,6 +43,37 @@ function FormationPaywall({ formationId, title, price, description, imageUrl, to
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recoverPhone, setRecoverPhone] = useState("");
+  const [recoverLoading, setRecoverLoading] = useState(false);
+  const [showRecover, setShowRecover] = useState(false);
+  const [recoverSuccess, setRecoverSuccess] = useState(false);
+
+  const handleRecover = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoverPhone.trim()) return;
+    setRecoverLoading(true);
+    try {
+      const res = await fetch("/api/formation-access/recover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: recoverPhone.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? "Aucune formation trouvée pour ce numéro."); return; }
+      const formations: { id: number }[] = data.formations ?? [];
+      if (formations.some((f) => f.id === formationId)) {
+        localStorage.setItem(`formation_access_${formationId}`, "1");
+        setRecoverSuccess(true);
+        setTimeout(() => setLocation(`/formations/${formationId}`), 1500);
+      } else {
+        toast.error("Ce numéro n'a pas acheté cette formation.");
+      }
+    } catch {
+      toast.error("Erreur réseau. Veuillez réessayer.");
+    } finally {
+      setRecoverLoading(false);
+    }
+  };
 
   const handleBuy = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +150,43 @@ function FormationPaywall({ formationId, title, price, description, imageUrl, to
               {loading ? "Traitement…" : `Acheter l'accès · ${formatPrice(price)}`}
             </Button>
             <p className="text-xs text-center text-slate-500">🔒 Paiement sécurisé via Wave ou Orange Money</p>
+
+            {/* Récupération d'accès */}
+            <div className="pt-2 border-t border-slate-100">
+              {!showRecover ? (
+                <button
+                  type="button"
+                  onClick={() => setShowRecover(true)}
+                  className="w-full flex items-center justify-center gap-1.5 text-xs text-primary hover:underline py-1"
+                >
+                  <KeyRound className="w-3.5 h-3.5" /> Vous avez déjà acheté cette formation ? Récupérez votre accès
+                </button>
+              ) : recoverSuccess ? (
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <CheckCircle className="w-4 h-4 shrink-0" /> Accès restauré ! Redirection…
+                </div>
+              ) : (
+                <form onSubmit={handleRecover} className="space-y-2">
+                  <p className="text-xs text-slate-600 font-medium">Entrez le numéro utilisé lors de l'achat :</p>
+                  <div className="flex gap-2">
+                    <Input
+                      value={recoverPhone}
+                      onChange={(e) => setRecoverPhone(e.target.value)}
+                      placeholder="+221 77 000 00 00"
+                      className="h-9 text-sm flex-1"
+                      required
+                    />
+                    <Button type="submit" size="sm" variant="outline" disabled={recoverLoading || !recoverPhone.trim()} className="shrink-0 gap-1">
+                      {recoverLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                      OK
+                    </Button>
+                  </div>
+                  <button type="button" onClick={() => setShowRecover(false)} className="text-xs text-muted-foreground hover:underline">
+                    Annuler
+                  </button>
+                </form>
+              )}
+            </div>
           </form>
 
           {/* Inclus */}

@@ -174,31 +174,34 @@ router.get("/admin/formation-stats", requireAuth, async (_req, res): Promise<voi
   res.json(stats);
 });
 
-// Récupérer les accès aux formations achetées via numéro de téléphone
+// Récupérer les accès aux formations achetées — vérifie téléphone + nom
 router.post("/formation-access/recover", async (req, res): Promise<void> => {
-  const { phone } = req.body as { phone?: string };
-  if (!phone?.trim()) {
-    res.status(400).json({ error: "Numéro de téléphone requis" });
+  const { phone, name } = req.body as { phone?: string; name?: string };
+  if (!phone?.trim() || !name?.trim()) {
+    res.status(400).json({ error: "Numéro de téléphone et nom requis" });
     return;
   }
 
   const normalizedPhone = phone.trim().replace(/\s+/g, "");
+  const normalizedName = name.trim().toLowerCase();
 
-  // Cherche toutes les commandes payées pour ce numéro de téléphone
-  const paidOrders = await db
+  // Cherche toutes les commandes pour ce numéro
+  const orders = await db
     .select()
     .from(ordersTable)
     .where(eq(ordersTable.clientPhone, normalizedPhone));
 
-  // Filtre les commandes de formations payées
-  const formationOrders = paidOrders.filter(
+  // Filtre : formations payées ET dont le nom correspond (insensible à la casse)
+  const formationOrders = orders.filter(
     (o) =>
       o.serviceId?.startsWith("formation-") &&
-      (o.paymentStatus === "paid" || o.status === "completed")
+      (o.paymentStatus === "paid" || o.status === "completed") &&
+      o.clientName?.trim().toLowerCase() === normalizedName
   );
 
   if (formationOrders.length === 0) {
-    res.status(404).json({ error: "Aucune formation achetée trouvée pour ce numéro." });
+    // Message volontairement vague pour ne pas aider un attaquant
+    res.status(404).json({ error: "Aucun achat trouvé. Vérifiez votre numéro et le nom exact utilisé lors de l'achat." });
     return;
   }
 

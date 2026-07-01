@@ -32,18 +32,19 @@ function RecoverAccessDialog({ open, onClose, onRecovered }: {
   onRecovered: (count: number) => void;
 }) {
   const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [recovered, setRecovered] = useState<{ id: number; title: string }[]>([]);
 
   const handleRecover = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone.trim()) return;
+    if (!phone.trim() || !name.trim()) return;
     setLoading(true);
     try {
       const res = await fetch("/api/formation-access/recover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim() }),
+        body: JSON.stringify({ phone: phone.trim(), name: name.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -102,7 +103,19 @@ function RecoverAccessDialog({ open, onClose, onRecovered }: {
         ) : (
           <form onSubmit={handleRecover} className="space-y-4 py-2">
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
-              <p>Entrez le numéro de téléphone utilisé lors de votre achat pour retrouver vos formations.</p>
+              <p>Entrez le nom complet et le numéro utilisés lors de votre achat pour retrouver vos formations.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="recover-name" className="text-sm font-semibold">Nom complet utilisé lors de l'achat</Label>
+              <Input
+                id="recover-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: Amadou Diallo"
+                required
+                className="h-11"
+                autoFocus
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="recover-phone" className="text-sm font-semibold">Numéro de téléphone</Label>
@@ -113,12 +126,11 @@ function RecoverAccessDialog({ open, onClose, onRecovered }: {
                 placeholder="Ex: +221 77 000 00 00"
                 required
                 className="h-11"
-                autoFocus
               />
             </div>
-            <Button type="submit" className="w-full gap-2 h-11" disabled={loading || !phone.trim()}>
+            <Button type="submit" className="w-full gap-2 h-11" disabled={loading || !phone.trim() || !name.trim()}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
-              {loading ? "Recherche en cours…" : "Récupérer mon accès"}
+              {loading ? "Vérification en cours…" : "Récupérer mon accès"}
             </Button>
           </form>
         )}

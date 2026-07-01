@@ -167,7 +167,14 @@ function FormationPaywall({ formationId, title, price, description, imageUrl, to
                 </div>
               ) : (
                 <form onSubmit={handleRecover} className="space-y-2">
-                  <p className="text-xs text-slate-600 font-medium">Entrez le numéro utilisé lors de l'achat :</p>
+                  <p className="text-xs text-slate-600 font-medium">Nom complet + numéro utilisés lors de l'achat :</p>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Votre nom complet (ex: Amadou Diallo)"
+                    className="h-9 text-sm"
+                    required
+                  />
                   <div className="flex gap-2">
                     <Input
                       value={recoverPhone}
@@ -176,7 +183,7 @@ function FormationPaywall({ formationId, title, price, description, imageUrl, to
                       className="h-9 text-sm flex-1"
                       required
                     />
-                    <Button type="submit" size="sm" variant="outline" disabled={recoverLoading || !recoverPhone.trim()} className="shrink-0 gap-1">
+                    <Button type="submit" size="sm" variant="outline" disabled={recoverLoading || !recoverPhone.trim() || !name.trim()} className="shrink-0 gap-1">
                       {recoverLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
                       OK
                     </Button>

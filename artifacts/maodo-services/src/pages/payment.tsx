@@ -192,7 +192,7 @@ export default function Payment({ params }: { params: { orderId: string } }) {
   }
 
   return (
-    <div className="flex flex-col flex-1 pb-24">
+    <div className="flex flex-col flex-1">
       <div className="px-4 py-4 flex items-center gap-3 border-b bg-muted/20">
         <h1 className="text-xl font-bold tracking-tight">Paiement</h1>
       </div>
@@ -236,9 +236,8 @@ export default function Payment({ params }: { params: { orderId: string } }) {
           <Lock className="w-4 h-4" />
           <span>Paiement sécurisé via DiamanoPay</span>
         </div>
-      </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t max-w-[390px] mx-auto z-10 pb-[env(safe-area-inset-bottom,16px)]">
+        {/* Bouton de validation — dans le flux de la page, toujours visible */}
         <Button
           className="w-full"
           size="lg"

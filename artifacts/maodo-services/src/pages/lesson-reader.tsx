@@ -2,7 +2,7 @@ import { Link, useParams, useLocation } from "wouter";
 import { useGetFormation } from "@workspace/api-client-react";
 import type { Lesson } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, CheckCircle, PlayCircle, Image as ImageIcon, BookOpen, Loader2, ListChecks, RotateCcw, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle, PlayCircle, Image as ImageIcon, BookOpen, Loader2, ListChecks, RotateCcw, Trophy, LockKeyhole } from "lucide-react";
 import { LessonContent } from "@/components/lesson-content";
 import { useEffect, useState } from "react";
 
@@ -129,6 +129,10 @@ export default function LessonReader() {
   const totalLessons = allLessons.length;
   const completedCount = allLessons.filter((l) => progressMap[l.id]).length;
   const progressPct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
+  const hasQuiz = quizzes.length > 0;
+  // Si la leçon a un quiz, elle n'est validée que par réussite du quiz (done=true dans localStorage)
+  const canGoNext = !hasQuiz || done;
 
   return (
     <div className="flex flex-col flex-1 bg-background">
@@ -419,8 +423,8 @@ export default function LessonReader() {
           </div>
         )}
 
-        {/* Mark as done */}
-        {!done && (
+        {/* Mark as done — masqué si la leçon a un quiz (c'est le quiz qui valide) */}
+        {!done && !hasQuiz && (
           <div className="mt-4 mb-6">
             <Button onClick={markDone} variant="outline" className="gap-2 border-green-300 text-green-700 hover:bg-green-50">
               <CheckCircle className="w-4 h-4" /> Marquer comme terminée
@@ -458,19 +462,44 @@ export default function LessonReader() {
           )}
 
           {nextLesson ? (
-            <Link href={`/formations/${formation.id}/lecon/${nextLesson.id}`}>
-              <Button className="gap-2 ml-auto" onClick={markDone}>
-                <span className="hidden sm:inline truncate max-w-[160px]">{nextLesson.title}</span>
-                <span className="sm:hidden">Suivante</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
+            canGoNext ? (
+              <Link href={`/formations/${formation.id}/lecon/${nextLesson.id}`}>
+                <Button className="gap-2 ml-auto" onClick={!hasQuiz ? markDone : undefined}>
+                  <span className="hidden sm:inline truncate max-w-[160px]">{nextLesson.title}</span>
+                  <span className="sm:hidden">Suivante</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            ) : (
+              <div className="flex flex-col items-end gap-1 ml-auto">
+                <Button disabled className="gap-2 opacity-60 cursor-not-allowed">
+                  <LockKeyhole className="w-4 h-4" />
+                  <span className="hidden sm:inline truncate max-w-[160px]">{nextLesson.title}</span>
+                  <span className="sm:hidden">Suivante</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+                <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                  <LockKeyhole className="w-3 h-3" /> Validez le quiz pour continuer
+                </p>
+              </div>
+            )
           ) : (
-            <Link href={`/formations/${formation.id}`}>
-              <Button className="gap-2 ml-auto" onClick={markDone}>
-                Terminer <CheckCircle className="w-4 h-4" />
-              </Button>
-            </Link>
+            canGoNext ? (
+              <Link href={`/formations/${formation.id}`}>
+                <Button className="gap-2 ml-auto" onClick={!hasQuiz ? markDone : undefined}>
+                  Terminer <CheckCircle className="w-4 h-4" />
+                </Button>
+              </Link>
+            ) : (
+              <div className="flex flex-col items-end gap-1 ml-auto">
+                <Button disabled className="gap-2 opacity-60 cursor-not-allowed">
+                  <LockKeyhole className="w-4 h-4" /> Terminer
+                </Button>
+                <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                  <LockKeyhole className="w-3 h-3" /> Validez le quiz pour terminer
+                </p>
+              </div>
+            )
           )}
         </div>
       </div>
